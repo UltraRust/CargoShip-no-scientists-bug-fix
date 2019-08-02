@@ -1,50 +1,76 @@
-﻿using UnityEngine;
+﻿using System;
+using Newtonsoft.Json;
+using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("CargoShipScientistsBugFix", "Ultra", "1.0.1")]
+    [Info("CargoShipScientistsBugFix", "Ultra", "2.1.2")]
     [Description("Cargo ship respawns if it has spawned out of livable map")]
 
     class CargoShipNoScientistsBugFix : RustPlugin
     {
-        private uint overBorderTolerance = 100;
+        bool initialized = false;
+        int mapLimit = 0;
 
-        private void OnEntitySpawned(BaseEntity Entity)
+        #region Hooks
+
+        void OnServerInitialized()
         {
+            mapLimit = (ConVar.Server.worldsize / 2) * 3;
+            if (mapLimit > 4000) mapLimit = 4000;
+            initialized = true;
+            Log($"OnServerInitialized(): MapSize: {ConVar.Server.worldsize} / MapLimit set to {mapLimit}", logType: LogType.INFO);
+        }
+
+        void OnEntitySpawned(BaseEntity Entity)
+        {
+            if (!initialized) return;
             if (Entity == null) return;
 
             if (Entity is CargoShip)
             {
                 CargoShip cargoShip = (CargoShip)Entity;
-                Vector3 newPosition = GetFixedPosition(cargoShip.transform.position);
 
-                if (cargoShip.transform.position != newPosition)
+                if (!IsInLivableArea(cargoShip.transform.position))
                 {
+                    Log($"CargoShip spawned out liveable area", logType: LogType.WARNING);
+                    Log($"{cargoShip.transform.position.x}|{cargoShip.transform.position.y}|{cargoShip.transform.position.z}", logType: LogType.WARNING);
                     timer.Once(1f, () => { cargoShip.Kill(); });
-                    timer.Once(2f, () => { SpawnCargoShip(newPosition); });
+                    Vector3 newPostition = GetFixedPosition(cargoShip.transform.position);
+                    timer.Once(2f, () => { SpawnCargoShip(newPostition); });
+                }
+                else
+                {
+                    Log($"CH47 spawned in liveable area properly", logType: LogType.INFO);
+                    Log($"{cargoShip.transform.position.x}|{cargoShip.transform.position.y}|{cargoShip.transform.position.z}", logType: LogType.INFO);
                 }
             }
         }
 
-        private Vector3 GetFixedPosition(Vector3 originalPosition)
+        #endregion
+
+        #region Core
+
+        bool IsInLivableArea(Vector3 originalPosition)
         {
-            int mapLimit = ConVar.Server.worldsize / 2;
+            if (originalPosition.x < -(mapLimit)) return false;
+            if (originalPosition.x > mapLimit) return false;
+            if (originalPosition.z < -(mapLimit)) return false;
+            if (originalPosition.z > mapLimit) return false;
+            return true;
+        }
+
+        Vector3 GetFixedPosition(Vector3 originalPosition)
+        {
             Vector3 newPosition = originalPosition;
-
-            if (originalPosition.x < -(mapLimit) - overBorderTolerance) newPosition.x = -(mapLimit) - overBorderTolerance;
-            if (originalPosition.x > mapLimit + overBorderTolerance) newPosition.x = mapLimit + overBorderTolerance;
-            if (originalPosition.z < -(mapLimit) - overBorderTolerance) newPosition.z = -(mapLimit) - overBorderTolerance;
-            if (originalPosition.z > mapLimit + overBorderTolerance) newPosition.z = mapLimit + overBorderTolerance;
-
-            if (originalPosition != newPosition)
-            {
-                Puts(string.Format("CargoShip out of map position detected: {0} | {1} | {2}", originalPosition.x, originalPosition.y, originalPosition.z));
-            }
-
+            if (originalPosition.x < -(mapLimit)) newPosition.x = -(mapLimit) + 100;
+            if (originalPosition.x > mapLimit) newPosition.x = mapLimit - 100;
+            if (originalPosition.z < -(mapLimit)) newPosition.z = -(mapLimit) + 100;
+            if (originalPosition.z > mapLimit) newPosition.z = mapLimit - 100;
             return newPosition;
         }
 
-        private void SpawnCargoShip(Vector3 position)
+        void SpawnCargoShip(Vector3 position)
         {
             Unsubscribe(nameof(OnEntitySpawned));
             var cargoShip = GameManager.server.CreateEntity("assets/content/vehicles/boats/cargoship/cargoshiptest.prefab") as CargoShip;
@@ -54,7 +80,85 @@ namespace Oxide.Plugins
             cargoShip.ServerPosition = position;
             cargoShip.Spawn();
             Subscribe(nameof(OnEntitySpawned));
-            Puts(string.Format("New CargoShip spawned: {0} | {1} | {2}", cargoShip.transform.position.x, cargoShip.transform.position.y, cargoShip.transform.position.z));
+            Log($"Standby CargoShip spawned: {cargoShip.transform.position.x}|{cargoShip.transform.position.y}|{cargoShip.transform.position.z}", logType: LogType.WARNING);
         }
+
+        #endregion
+
+        #region Config
+
+        private ConfigData configData;
+
+        private class ConfigData
+        {
+            [JsonProperty(PropertyName = "LogInFile")]
+            public bool LogInFile;
+
+            [JsonProperty(PropertyName = "LogInConsole")]
+            public bool LogInConsole;
+        }
+
+        protected override void LoadConfig()
+        {
+            try
+            {
+                base.LoadConfig();
+                configData = Config.ReadObject<ConfigData>();
+                if (configData == null)
+                {
+                    LoadDefaultConfig();
+                }
+            }
+            catch
+            {
+                LoadDefaultConfig();
+            }
+
+            SaveConfig();
+        }
+
+        protected override void LoadDefaultConfig()
+        {
+            configData = new ConfigData()
+            {
+                LogInFile = true,
+                LogInConsole = true
+            };
+        }
+
+        protected override void SaveConfig()
+        {
+            Config.WriteObject(configData, true);
+            base.SaveConfig();
+        }
+
+        #endregion
+
+        #region Log
+
+        void Log(string message, bool console = false, LogType logType = LogType.INFO, string fileName = "")
+        {
+            if (configData.LogInFile)
+            {
+                LogToFile(fileName, $"[{DateTime.Now.ToString("hh:mm:ss")}] {logType} > {message}", this);
+            }
+
+            if (configData.LogInConsole)
+            {
+                Console.ForegroundColor = ConsoleColor.Gray;
+                if (logType == LogType.WARNING) Console.ForegroundColor = ConsoleColor.Yellow;
+                if (logType == LogType.ERROR) Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"[{this.Title}] {message.Replace("\n", " ")}");
+            }
+        }
+
+        enum LogType
+        {
+            INFO = 0,
+            WARNING = 1,
+            ERROR = 2
+        }
+
+        #endregion
     }
 }
