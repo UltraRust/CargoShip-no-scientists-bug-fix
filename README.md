@@ -7,3 +7,5 @@ If CargoShip spawned out of liveable area then the plugin kills the object and c
 Don't hesitate to continue with this project
 
 Discord server: https://discord.io/UltraRust - please share your experience on this server
+
+UPDATE: the cause seems to be Oxide.Ext.RustIO.dll (Rust.IO maps). Anyway this plugin can fix the issue
