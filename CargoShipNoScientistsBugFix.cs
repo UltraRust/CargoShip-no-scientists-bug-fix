@@ -11,7 +11,7 @@ namespace Oxide.Plugins
     {
         bool initialized = false;
         int mapLimit = 0;
-        Timer currentPositionLogTimer;
+        Timer currentPositionLogTimer = null;
 
         #region Hooks
 
@@ -50,7 +50,10 @@ namespace Oxide.Plugins
 
         void Unload()
         {
-            currentPositionLogTimer.Destroy();
+            if (currentPositionLogTimer != null)
+            {
+                currentPositionLogTimer.Destroy();
+            }            
         }
         
         #endregion
