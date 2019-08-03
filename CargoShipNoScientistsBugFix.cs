@@ -11,6 +11,7 @@ namespace Oxide.Plugins
     {
         bool initialized = false;
         int mapLimit = 0;
+        Timer currentPositionLogTimer;
 
         #region Hooks
 
@@ -47,6 +48,11 @@ namespace Oxide.Plugins
             }
         }
 
+        void Unload()
+        {
+            currentPositionLogTimer.Destroy();
+        }
+        
         #endregion
 
         #region Core
@@ -79,8 +85,15 @@ namespace Oxide.Plugins
             cargoShip.TriggeredEventSpawn();
             cargoShip.ServerPosition = position;
             cargoShip.Spawn();
+            currentPositionLogTimer = timer.Repeat(15, 5, () => LogCurrentPosition(cargoShip));
             Subscribe(nameof(OnEntitySpawned));
-            Log($"Standby CargoShip spawned: {cargoShip.transform.position.x}|{cargoShip.transform.position.y}|{cargoShip.transform.position.z}", logType: LogType.WARNING);
+            Log($"Standby CargoShip spawned: {cargoShip.transform.position.x}|{cargoShip.transform.position.y}|{cargoShip.transform.position.z}", logType: LogType.INFO);
+        }
+
+        void LogCurrentPosition(CargoShip cargoShip)
+        {
+            if (cargoShip == null || cargoShip.IsDestroyed) return;
+            Log($"Current position: {cargoShip.transform.position.x}|{cargoShip.transform.position.y}|{cargoShip.transform.position.z} ", logType: LogType.INFO);
         }
 
         #endregion
@@ -145,10 +158,7 @@ namespace Oxide.Plugins
 
             if (configData.LogInConsole)
             {
-                Console.ForegroundColor = ConsoleColor.Gray;
-                if (logType == LogType.WARNING) Console.ForegroundColor = ConsoleColor.Yellow;
-                if (logType == LogType.ERROR) Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[{this.Title}] {message.Replace("\n", " ")}");
+                Puts($"{message.Replace("\n", " ")}");
             }
         }
 
