@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("CargoShipScientistsBugFix", "Ultra", "2.1.2")]
+    [Info("CargoShipScientistsBugFix", "Ultra", "2.1.3")]
     [Description("Cargo ship respawns if it has spawned out of livable map")]
 
     class CargoShipNoScientistsBugFix : RustPlugin
@@ -88,7 +88,7 @@ namespace Oxide.Plugins
             cargoShip.TriggeredEventSpawn();
             cargoShip.ServerPosition = position;
             cargoShip.Spawn();
-            currentPositionLogTimer = timer.Repeat(15, 5, () => LogCurrentPosition(cargoShip));
+            currentPositionLogTimer = timer.Repeat(30, 5, () => LogCurrentPosition(cargoShip));
             Subscribe(nameof(OnEntitySpawned));
             Log($"Standby CargoShip spawned: {cargoShip.transform.position.x}|{cargoShip.transform.position.y}|{cargoShip.transform.position.z}", logType: LogType.INFO);
         }
