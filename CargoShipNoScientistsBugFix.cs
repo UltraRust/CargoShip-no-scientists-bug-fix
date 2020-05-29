@@ -42,7 +42,7 @@ namespace Oxide.Plugins
                 }
                 else
                 {
-                    Log($"CH47 spawned in liveable area properly", logType: LogType.INFO);
+                    Log($"CargoShip spawned in liveable area properly", logType: LogType.INFO);
                     Log($"{cargoShip.transform.position.x}|{cargoShip.transform.position.y}|{cargoShip.transform.position.z}", logType: LogType.INFO);
                 }
             }
